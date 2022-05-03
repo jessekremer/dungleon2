@@ -3,6 +3,10 @@ version 35
 __lua__
 function _init()
 	debug=false
+	trans_drop=false
+	ty=-50
+	tf=0.9
+	tv=6
 	cursor=1
 	aid=false
 	first_aid=true
@@ -18,18 +22,13 @@ function _init()
 	spoils_monsters=0
 	spoils_treasure=0
 
-	state="play"
+	state="title"
 	-- intro
 	-- menu
 	-- play
 	-- lose - 20 guesses
 	-- win - correct solution
 
-	solution={"archer",
-			"warrior",
-			"blade orc",
-			"axe orc",
-			"chest"}
 	chars={
 			{
 				name="warrior",
@@ -258,17 +257,82 @@ function _init()
 		--frames
 		--current
 		--tag
+		
+		-- solution={"archer",
+		-- 	"warrior",
+		-- 	"blade orc",
+		-- 	"axe orc",
+		-- 	"chest"}
+		level_init()
+end
+
+function level_init()
+	solution=build_dungeon()
+end
+
+function build_dungeon()
+	local dungeon={
+		"archer",
+		"warrior",
+		"blade orc",
+		"axe orc",
+		"chest"
+	}
+	local heroes={}
+	local mobs={}
+	local loot={}
+	local npc={}
+	local other={}
+	local choices=deepcopy(chars)
+	for c=1,#chars do
+		if(chars[c].type=="hero") add(heroes,chars[c])
+		if(chars[c].type=="monster") add(mobs,chars[c])
+		if(chars[c].type=="npc") add(npc,chars[c])
+		if(chars[c].type=="other") add(other,chars[c])
+		if(chars[c].type=="loot") add(loot,chars[c])
+	end
+	hero1=ceil(rnd(#heroes))
+	mob1=ceil(rnd(#mobs))
+	loot1=ceil(rnd(#loot))
+	-- plus1=flr(rnd(#chars))
+	-- plus2=flr(rnd(#chars))
+	pos=1
+	dungeon[pos]=heroes[hero1].name
+	del(heroes,heroes[hero1])
+	pos+=1
+	if dungeon[pos]=="archer" then
+		h=ceil(rnd(#heroes))
+		dungeon[pos]=heroes[h].name
+		del(heroes,heroes[h])
+		pos+=1
+	end
+	dungeon[pos]=mobs[mob1].name
+	pos+=1
+	cls()
+	print(pos)
+	print(dungeon[1])
+	print(dungeon[2])
+	print(dungeon[3])
+	-- stop()
+	dungeon[pos]=loot[loot1].name
+	pos+=1
+	
+	return dungeon
 end
 
 function _update()
 	tnum=#timers
 	for t=tnum,1,-1 do
-		timers[t].current+=1
+		timers[t].current+=timers[t].speed
 		if timers[t].current>timers[t].length then
 			del(timers,timers[t])
 		end
 	end
-	if state=="play" then
+	if state=="title" then
+		if btn(🅾️) and btn(❎) then
+			state="play"
+		end
+	elseif state=="play" then
 		play_controls()
 	elseif state=="lose" or state=="win" then
 		if btn(🅾️) and btn(❎) then
@@ -286,7 +350,17 @@ function _draw()
 		end
 		rect(0,0,127,127,11)
 	end
-	if state=="play" then
+	if state=="title" then
+		map()
+		palt(0,false)
+		-- palt(9,true)
+		--sspr(64,112,59,13,5,10,118,26)
+		palt(11,true)
+		sspr(64,96,59,13,5,12,118,26)
+		palt()
+		txt='🅾️+❎ start'
+		bprint(txt,centre_text(txt,2),92,7,0)
+	elseif state=="play" then
 		board()
 		characters()
 		guesses()
@@ -364,32 +438,85 @@ function play_controls()
 			cursor=cursor-13
 		end
 	end
-	if btnp(🅾️) then
+	if btnp(🅾️) and #timers==0 then
 		--add char to current spot
-		tempchars=deepcopy(chars)
-		add(guess,tempchars[cursor])
-		guess[#guess].result='guess'
-		check=true
-		if #guess%5==0 then
-			check_guesses(#guess/5-1)
-		end
-		
-		if chars[cursor].type=="hero" or chars[cursor].type=="npc" or chars[cursor].name=="thief" then
-			dir="bump right"
+		if chars[cursor].type != "aid" then
+			tempchars=deepcopy(chars)
+			add(guess,tempchars[cursor])
+			guess[#guess].result='guess'
+			
+			if #guess%5==0 then
+				check=true
+			end
+			
+			if chars[cursor].type=="hero" or chars[cursor].type=="npc" or chars[cursor].name=="thief" then
+				dir="bump right"
+			else
+				dir="bump left"
+			end
+			add(timers,{length=1,speed=1,current=0,lag=0,tag=dir})
+			add(timers,{length=6,speed=1,current=0,lag=2,tag="guess pop",val=#guess-1})
+			if #guess == 30 then
+				state="lose" --will always lose on last guess regardless of result
+			end
 		else
-			dir="bump left"
+			--wand behaviour
+			--r=flr(rnd(2))
+			r=1
+			no_guess=0
+			for g=1,#chars do
+				if (chars[g].result=="none") no_guess+=1
+			end
+			if r==1 then
+				-- 1. reveal 4 if possible
+				if no_guess > 4 then 
+					reveals=4
+				else
+					reveals=no_guess
+				end
+				placed=0
+				-- infinite loop somewhere
+				inf_break=0
+				while placed < reveals or inf_break > 120 do
+					for g=1,#chars do
+						if flr(rnd(3))==1 and chars[g].result=="none" then
+							any_right=0
+							for s=1,5 do
+								if chars[g].name==solution[s] then
+									any_right+=1
+								end
+							end
+							if any_right==0 then
+								chars[g].result="wrong"
+								placed+=1
+							end
+						end
+						if (placed>=reveals) break
+					end
+					inf_break+=1
+				end
+
+			else
+				-- 2. ??
+			end
+			aid=false
+			for c=1,#chars do
+				if chars[c].name=="wand" then
+					chars[c].result="no aid"
+					chars[c].spr=16
+				end
+			end
+			cursor+=1
 		end
-		add(timers,{length=1,speed=1,current=0,tag=dir})
-		add(timers,{length=2,speed=1,current=0,tag="button press"})
-		if #guess == 30 then
-			state="lose"
-		end
+		add(timers,{length=2,speed=1,current=0,lag=0,tag="button press"})
+		add(timers,{length=10,speed=1,current=0,lag=0,tag="select text",val=cursor})	
 	elseif btnp(❎) then
 		--delete last placed char
 		if #guess%5 > 0 then
 			del(guess,guess[#guess])
 		end
 	end
+	if (#timers == 0 and check) check_guesses(#guess/5-1)
 end
 
 function transition(title,col)
@@ -397,8 +524,16 @@ function transition(title,col)
 	fillp(▒)
 	rectfill(0,0,127,127,5)
 	fillp()
-	rectfill(20,6,107,101,0)
-	print(title,52,11,col)
+	if (trans_drop) then
+		tv*=tf -- friction
+		ty+=tv
+		if ty>=0 then
+			trans_drop=false
+			ty=0
+		end
+	end
+	rectfill(20,6+ty,107,101+ty,0)
+	print(title,52,11+ty,col)
 	-- plays=0
 	-- wins=0
 	-- wins_hard=0
@@ -406,28 +541,30 @@ function transition(title,col)
 	-- spoils_heroes=0
 	-- spoils_monsters=0
 	-- spoils_treasure=0
-	print(plays,34,43,7)
-	print(wins,62,43,7)
-	print(streak,90,43,7)
-	print('PLAYS',26,50,6)
-	print('WINS',56,50,6)
-	print('STREAK',80,50,6)
+	print(plays,34,43+ty,7)
+	print(wins,62,43+ty,7)
+	print(streak,90,43+ty,7)
+	print('PLAYS',26,50+ty,6)
+	print('WINS',56,50+ty,6)
+	print('STREAK',80,50+ty,6)
 
-	print('SPOILS',52,60,6)
-	print(spoils_heroes,34,68,7)
-	print(spoils_monsters,62,68,7)
-	print(spoils_treasure,90,68,7)
-	print('PLAYS',26,50,6)
-	-- spr(28,25,68)
-	-- spr(44,54,68)
-	-- spr(60,82,68)
-	spr(28,32,76)
-	spr(44,59,76)
-	spr(60,87,76)
+	print('SPOILS',52,60+ty,6)
+	print(spoils_heroes,34,68+ty,7)
+	print(spoils_monsters,62,68+ty,7)
+	print(spoils_treasure,90,68+ty,7)
+	print('PLAYS',26,50+ty,6)
+	spr(28,32,76+ty)
+	spr(44,59,76+ty)
+	spr(60,87,76+ty)
+
+	txt='❎ share result'
+	print(txt,centre_text(txt,1),86+ty,7)
+	txt='🅾️+❎ next dungleon'
+	print(txt,centre_text(txt,2),92+ty,9)
 	
 	pos=1
 	for g=#guess-4,#guess do
-		shspr(guess[g].spr,21+pos*13,22,guess[g].palt,highlight,'right','deep')
+		shspr(guess[g].spr,21+pos*13,22+ty,guess[g].palt,highlight,'right','deep')
 		pos+=1
 	end
 end
@@ -441,8 +578,9 @@ function shspr(s,x,y,pl,hl,m,bg)
 	-- hl = highlight
 	-- m = match
 	-- bg = background style
+	local highlighter=hl
 
-	if highlight then
+	if highlighter then
 		if m=="none" then
 			spr(168,x-2,y-2)
 			spr(169,x+6,y-2)
@@ -549,6 +687,8 @@ function board()
 	bx=13
 	by=13
 	of=32
+	local b1=0
+	local b2=0
 	print("DUNGLEON",32,0,7)
 	print("L",48,0,14)
 	--hearts [optimise]
@@ -576,22 +716,22 @@ function board()
 			result="none"
 			-- backgrounds based on guesses
 			if result=="none" then
-				s1=128
-				s2=144
+				b1=128
+				b2=144
 			elseif result=="wrong" then
-				s1=130
-				s2=146
+				b1=130
+				b2=146
 			elseif result=="close" then
-				s1=132
-				s2=148
+				b1=132
+				b2=148
 			elseif result=="right" then
-				s1=134
-				s2=150
+				b1=134
+				b2=150
 			end
-			spr(s1,of+sx,7+sy)
-			spr(s1+1,of+sx+8,7+sy)
-			spr(s2,of+sx,7+sy+8)
-			spr(s2+1,of+sx+8,7+sy+8)
+			spr(b1,of+sx,7+sy)
+			spr(b1+1,of+sx+8,7+sy)
+			spr(b2,of+sx,7+sy+8)
+			spr(b2+1,of+sx+8,7+sy+8)
 		end
 	end
 end
@@ -618,6 +758,7 @@ function guesses()
 	offx=0
 	if #guess > 0 then
 		for i=1,#guess do
+			highlight=false
 			shspr(guess[i].spr,21+13*(i-newline*5),9+13*newline,guess[i].palt,highlight,guess[i].result,'deep')
 			if(i%5==0) newline+=1
 		end
@@ -654,6 +795,7 @@ function check_guesses(row)
 		state='win'
 		wins+=1
 		plays+=1
+		trans_drop=true
 	end
 	if (right==4 or wiz_check>0) and first_aid then
 		aid=true
@@ -671,34 +813,55 @@ end
 
 function timer_draw_actions()
 	for t=1,#timers do
-		if timers[t].tag == "bump right" then
-			camera(timers[t].current,0)
-		elseif timers[t].tag == "bump left" then
-			camera(-timers[t].current,0)
-		else
-			camera(0,0)
-		end
-		if timers[t].tag == "button press" then
-			for i=1,#chars do
-				if cursor == i then
-					if i>14 then
-						cx=2+13*(i-13)
-						cy=114
-					elseif i>8 then
-						cx=2+13*(i-7)
-						cy=101
-					else
-						cx=2+13*i
-						cy=88
+		if timers[t].current > timers[t].lag then
+			if timers[t].tag == "bump right" then
+				camera(timers[t].current,0)
+			elseif timers[t].tag == "bump left" then
+				camera(-timers[t].current,0)
+			else
+				camera(0,0)
+			end
+			if timers[t].tag == "button press" then
+				for i=1,#chars do
+					if cursor == i then
+						if i>14 then
+							cx=2+13*(i-13)
+							cy=114
+						elseif i>8 then
+							cx=2+13*(i-7)
+							cy=101
+						else
+							cx=2+13*i
+							cy=88
+						end
 					end
 				end
+				pal(5,0)
+				spr(128,cx-2,cy-2)
+				spr(129,cx+6,cy-2)
+				spr(144,cx-2,cy+6)
+				spr(145,cx+6,cy+6)
+				pal()
 			end
-			pal(5,0)
-			spr(128,cx-2,cy-2)
-			spr(129,cx+6,cy-2)
-			spr(144,cx-2,cy+6)
-			spr(145,cx+6,cy+6)
-			pal()
+			if timers[t].tag == "select text" then
+				name=chars[timers[t].val].name
+				y=79
+				if(#guess > 25) y=66
+				bprint(name,centre_text(name,0),y,7,1)
+			end
+			if timers[t].tag == "guess pop" then
+				s1=192
+				s2=208
+				palt(14,true)
+				palt(0,false)
+				sx=timers[t].val%5*13+31
+				sy=flr(timers[t].val/5)*13+6
+				spr(s1,sx,sy)
+				spr(s1+1,sx+8,sy)
+				spr(s2,sx,sy+8)
+				spr(s2+1,sx+8,sy+8)
+				palt()
+			end
 		end
 	end
 end
@@ -715,6 +878,11 @@ function bprint(str,x,y,c1,c2)
 	print(str,x,y+1)
 
 	print(str,x,y,c1)
+end
+
+function centre_text(str,special_chars)
+	pos=((32*4)-(#str*4+special_chars*4))/2
+	return pos
 end
 
 function deepcopy(orig)
@@ -829,28 +997,54 @@ bbba9bbb000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-e555555555555eee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-5eeeeeeeeeeee5ee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-e555555555555eee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-eeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-eeeeeeeeeeeeeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e555555555555eee55555555555555550000000000000000dddd0ddddddd0dddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+50000000000005eeddddddddddddddd56666666666666660111d0111111d0111b0000000b00000000000000000000000000bb000000000000000000000bbbbbb
+50eeeeeeeeee05ee01111111111111d51555555555555560111d0111111d0111b06666600660666066006600666600eeee0b0066666006666006600660bbbbbb
+50eeeeeeeeee05ee01111111111111d515555555555555600000000000000000b06606660660666066606606666660eeee0b0666666066066606660660bbbbbb
+50eeeeeeeeee05ee01111111111111d51555555555555560ddddddd0ddddddd0b06606660660666066666606606660eeee0b0666000066066606666660bbbbbb
+50eeeeeeeeee05ee01111111111111d51555555555555560111111d0111111d0b06606660660666066666606600000eeee0b0666666066066606666660bbbbbb
+50eeeeeeeeee05ee01111111111111d51555555555555560111111d0111111d0b06606660660666066666606606660eeee0b0666666066066606666660bbbbbb
+50eeeeeeeeee05ee00000000000000d511111111111111600000000000000000b06606660660666066666606600660eeee000666000066066606666660bbbbbb
+50eeeeeeeeee05ee55555555555555550000000000000000ddd0ddddddd0ddddb06606660666666066066606666660eeeeee0666666066066606606660bbbbbb
+50eeeeeeeeee05eeddddddd5dddddddd666666606666666611d0111111d01111b06666600066660066006600666660eeeeee0066666006666006600660bbbbbb
+50eeeeeeeeee05ee111111d501111111555555601555555511d0111111d01111b0000000b0000000000000000000000000000000000b000000b0000000bbbbbb
+50eeeeeeeeee05ee111011d50111100155555560155555550000000000000000b000000bbb0000bb00bb00bb00000b000000bb00000bb0000bb00bb00bbbbbbb
+50000000000005ee111101d50111011155555560155555550ddddddd0dddddddbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+e555555555555eee111111d50111111155555560155555550111111d0111111dbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+eeeeeeeeeeeeeeee101111d50111111155555560155555550111111d0111111dbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+eeeeeeeeeeeeeeee000000d50000000011111160111111110000000000000000bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+5555555555555555555555555555555555555555555555555555555555555555ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc99999
+ddddddddddddddd5ddddddddddddddd50000000000000005ddddddddddddddd5c0000000000000000000000000000000000cc000000000000000000000c99999
+01111111111111d501101111111111d5011111111111110501111111111111d5c06666600660666066006600666600eeee0c0066666006666006600660c99999
+01111111111111d501011111111111d5011111111111110501111111111111d5c06606660660666066606606666660eeee0c0666666066066606660660c99999
+01111111111111d501111111110111d5011111111111110501111111111111d5c06606660660666066666606606660eeee0c0666000066066606666660c99999
+01111111111111d501101111110111d5011111111111110501111111111111d5c06606660660666066666606600000eeee0c0666666066066606666660c99999
+01111111111111d501111111101111d5011111111111110501111111111111d5c06606660660666066666606606660eeee0c0666666066066606666660c99999
+00000000000000d500000000000000d5000000000000000500000000000000d5c06606660660666066666606600660eeee000666000066066606666660c99999
+5555555555555555555555555555555555555555555555555555555555555555c06606660666666066066606666660eeeeee0666666066066606606660c99999
+ddddddd5ddddddddddddddd5ddddddddddddddd5ddddddddddddddd5ddddddddc06666600066660066006600666660eeeeee0066666006666006600660c99999
+111111d501111111111111d501111111111111d501111111111111d501111111c0000000c0000000000000000000000000000000000c000000c0000000c99999
+111011d501111001111111d501111111111111d501111111111111d501111111c000000ccc0000cc00cc00cc00000c000000cc00000cc0000cc00cc00cc99999
+111101d501110111111111d501111111111111d501111111111111d501111111cccccccc9cccccc9cccccccccccccccccccccccccccccccccccccccccc999999
+111111d501111111111111d501111111111111d501111111111111d5011111119999999999999999999999999999999999999999999999999999999999999999
+101111d501111111111111d501111111111111d501111111111111d5011111119999999999999999999999999999999999999999999999999999999999999999
+000000d500000000000000d500000000000000d500000000000000d5000000009999999999999999999999999999999999999999999999999999999999999999
 __map__
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-010203060708090a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0004051716181900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000111213141500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e6e7e6e7e6e7e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f6f7f6f7f6f7f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e6e7e6e7e6e7e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f6f7f6f7f6f7f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e6e7e6e7e6e7e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f6f7f6f7f6f7f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e6e7e6e7e6e7e4e5e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f6f7f6f7f6f7f4f5f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e4e5e6e7e6e7e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f4f5f6e2e3f7f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e2e3e6e7e0e1e6f2f3e7e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f2f3f6f7f0f1f6f7f6f7f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e6e7e6e7e6e7e6e7c2c3e6e7e4e500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f6f7f6f7f6f7f6f7d2d3f6f7f4f500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+e6e7e0e1e2e3e6e7e6e7e0e1e6e7e6e700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f6f7f0f1f2f3f6f7f6f7f0f1f6f7f6f700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__change_mask__
+fffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbfffffffbffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
