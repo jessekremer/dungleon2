@@ -20,11 +20,6 @@ function _init()
 	eight_level=1
 	eight_results={}
 	lvl_lmt=8
-	-- intro
-	-- menu
-	-- play
-	-- lose - 20 guesses
-	-- win - correct solution
 
 	chars={
 			{
@@ -268,12 +263,11 @@ function level_init(mode)
 	aid=false
 	first_aid=true
 	guess={}
+	-- reset character states
 	for c=1,#chars do
-		if chars[c].type!='aid' then
-			chars[c].result="none"
-		else
-			chars[c].result="no aid"
-		end
+		ch=chars[c]
+		ch.result="no aid"
+		if(ch.type!='aid') ch.result="none"
 	end
 	check=false
 	wait=0
@@ -283,23 +277,14 @@ function level_init(mode)
 	--90 year
 	--91 month
 	--92 day
-	if (mode=='single') then
-		seed=(stat(90)-2020)*10000+stat(91)*100+stat(92)
-	elseif (mode=='eight') then
-		seed=(stat(90)-2020)*10000+stat(91)*100+stat(92)
-		seed+=(eight_level+8)*100
-		eight_level+=1
-	end
+	seed=(stat(90)-2020)*10000+stat(91)*100+stat(92)
+	if (mode=='eight') seed+=(eight_level+8)*100 eight_level+=1
 	solution=build_dungeon(seed)
 end
 
 function build_dungeon(seed)
 	local dungeon={}
 	local heroes={}
-	local mobs={}
-	local loot={}
-	local npc={}
-	local other={}
 	local choices=deepcopy(chars)
 	srand(seed)
 	-- https://docs.google.com/spreadsheets/d/1JnarT1WfE8O1oGL6G1CzGoDg9hypuhkZ8NI5BXIUWSM/edit?usp=sharing
@@ -318,7 +303,8 @@ function build_dungeon(seed)
 		end
 	end
 	for c=#choices,1,-1 do
-		if(choices[c].code==5 or choices[c].type=="other" or choices[c].type=="aid") del(choices,choices[c])
+		cc=choices[c]
+		if(cc.code==5 or cc.type=="other" or cc.type=="aid") del(choices,cc)
 	end
 	-- Step 3	B8 - select random from list in step 2
 	add(dungeon,choices[ceil(rnd(#choices))])
@@ -371,19 +357,22 @@ function build_dungeon(seed)
 		if(dungeon[d].name=="dragon") dragon+=1
 	end
 	for c=#choices,1,-1 do
-		if 	choices[c].name=="thief" or 
-			choices[c].code==5 or
-			(dungeon[2].max==1 and choices[c].name==dungeon[2].name) or
-			(dungeon[2].name=="archer" and (choices[c].name!="chest" and choices[c].name!="coins")) or
-			(dungeon[2].name=="warrior" and choices[c].type!="monster") or
-			(dungeon[2].name=="dragon" and choices[c].name!="chest") or
-			(choices[c].type!="monster" and choices[c].type!="loot") or
-			((dungeon[1].type=="monster" or dungeon[2].type=="monster") and choices[c].name=="dragon") or
-			((dungeon[1].min>1 or dungeon[2].min>1) and choices[c].name=="spider") or
-			((dungeon[1].name=="spider" or dungeon[2].name=="spider") and (choices[c].min>1)) or
-			(dragon>0 and choices[c].name=="coins")
+		cc=choices[c]
+		d1=dungeon[1]
+		d2=dungeon[2]
+		if 	cc.name=="thief" or 
+			cc.code==5 or
+			(d2.max==1 and cc.name==d2.name) or
+			(d2.name=="archer" and (cc.name!="chest" and cc.name!="coins")) or
+			(d2.name=="warrior" and cc.type!="monster") or
+			(d2.name=="dragon" and cc.name!="chest") or
+			(cc.type!="monster" and cc.type!="loot") or
+			((d1.type=="monster" or d2.type=="monster") and cc.name=="dragon") or
+			((d1.min>1 or d2.min>1) and cc.name=="spider") or
+			((d1.name=="spider" or d2.name=="spider") and (cc.min>1)) or
+			(dragon>0 and cc.name=="coins")
 			 then
-				del(choices,choices[c])
+				del(choices,cc)
 		end
 	end
 	
@@ -410,13 +399,14 @@ function build_dungeon(seed)
 	coins=0
 	loot=0
 	for d=1,#dungeon do
-		if(dungeon[d].name=="bat") bat+=1
-		if(dungeon[d].name=="spider") spider+=1
-		if(dungeon[d].name=="dragon") dragon+=1
-		if(dungeon[d].name=="coins") coins+=1
-		if(dungeon[d].type=="loot") loot+=1
-		if(dungeon[d].type=="monster") monster+=1
-		if(dungeon[d].name=="blade orc" or dungeon[d].name=="axe orc") orc+=1 orc_type=dungeon[d].name
+		dd=dungeon[d]
+		if(dd.name=="bat") bat+=1
+		if(dd.name=="spider") spider+=1
+		if(dd.name=="dragon") dragon+=1
+		if(dd.name=="coins") coins+=1
+		if(dd.type=="loot") loot+=1
+		if(dd.type=="monster") monster+=1
+		if(dd.name=="blade orc" or dd.name=="axe orc") orc+=1 orc_type=dd.name
 	end
 	if bat==1 then
 		for c=1,#choices do
@@ -449,17 +439,18 @@ function build_dungeon(seed)
 	elseif monster==0 then
 		-- if no monsters yet, add one unless you can't finish it
 		for c=#choices,1,-1 do
-			if 	(choices[c].min>2 and
-				choices[c].max>2 and 
-				choices[c].type=="monster") or
-				choices[c].type!="monster" or
-				choices[c].name=="thief" or
-				choices[c].name=="wizard" or
-				((choices[c].name=="blade orc" or choices[c].name=="axe orc") and (orc==2 or coins==1 or bat==1 or spider==1)) or
-				(choices[c].name=="bat" and bat<1 and (coins==1 or spider>=1)) or
-				choices[c].code==5 or
-				choices[c].code==1 then
-				del(choices,choices[c])
+			cc=choices[c]
+			if 	(cc.min>2 and
+				cc.max>2 and 
+				cc.type=="monster") or
+				cc.type!="monster" or
+				cc.name=="thief" or
+				cc.name=="wizard" or
+				((cc.name=="blade orc" or cc.name=="axe orc") and (orc==2 or coins==1 or bat==1 or spider==1)) or
+				(cc.name=="bat" and bat<1 and (coins==1 or spider>=1)) or
+				cc.code==5 or
+				cc.code==1 then
+				del(choices,cc)
 			end
 		end
 		add(dungeon,choices[ceil(rnd(#choices))])
@@ -468,18 +459,19 @@ function build_dungeon(seed)
 		for c=1,#cnt do
 			if cnt[c].num>=1 then
 				for h=#choices,1,-1 do
-					if (choices[h].name==cnt[c].name and choices[h].max <= cnt[c].num)
-						or choices[h].name=="dragon"
-						or choices[h].code==5
-						or choices[h].code==1
-						or choices[h].type=="aid"
-						or choices[h].type=="hero"
-						or choices[h].type=="npc"
-						or choices[h].type=="other"
-						or (dragon>0 and (choices[h].type=="monster" or choices[h].name=="relic" or choices[h].name=="coins")
-						or ((choices[h].name=="blade orc" or choices[h].name=="axe orc") and (orc==2 or coins==1 or bat==1 or spider==1))
-						or (choices[h].name=="spider" and spider==0)) then
-						del(choices,choices[h])
+					ch=choices[h]
+					if (ch.name==cnt[c].name and ch.max <= cnt[c].num)
+						or ch.name=="dragon"
+						or ch.code==5
+						or ch.code==1
+						or ch.type=="aid"
+						or ch.type=="hero"
+						or ch.type=="npc"
+						or ch.type=="other"
+						or (dragon>0 and (ch.type=="monster" or ch.name=="relic" or ch.name=="coins")
+						or ((ch.name=="blade orc" or ch.name=="axe orc") and (orc==2 or coins==1 or bat==1 or spider==1))
+						or (ch.name=="spider" and spider==0)) then
+						del(choices,ch)
 					end
 				end
 			end
@@ -505,13 +497,14 @@ function build_dungeon(seed)
 	orc_type=""
 	loot=0
 	for c=1,#cnt do
-		if(cnt[c].name=="dragon" and cnt[c].num>0) dragon_check=true
-		if(cnt[c].name=="relic" and cnt[c].num>0) relic_check=true
-		if(cnt[c].name=="bat") bat=cnt[c].num
-		if(cnt[c].name=="spider") spider=cnt[c].num
-		if(cnt[c].name=="coins") coins=cnt[c].num
-		if(cnt[c].type=="loot") loot+=1
-		if(cnt[c].name=="blade orc" or cnt[c].name=="axe orc" and cnt[c].num>0) orc+=cnt[c].num orc_type=cnt[c].name
+		cc=cnt[c]
+		if(cc.name=="dragon" and cc.num>0) dragon_check=true
+		if(cc.name=="relic" and cc.num>0) relic_check=true
+		if(cc.name=="bat") bat=cc.num
+		if(cc.name=="spider") spider=cc.num
+		if(cc.name=="coins") coins=cc.num
+		if(cc.type=="loot") loot+=1
+		if(cc.name=="blade orc" or cc.name=="axe orc" and cc.num>0) orc+=cc.num orc_type=cc.name
 	end
 	for d=1,#dungeon do
 		if(dungeon[d].type=="monster") monster+=1
@@ -522,12 +515,11 @@ function build_dungeon(seed)
 		end
 	elseif bat==1 or spider==2 or coins==1 then
 		for c=1,#choices do
-			if 	(choices[c].name=="bat" and bat==1) or
-				(choices[c].name=="spider" and spider==2) or
-				(choices[c].name=="coins" and coins==1)then 
-				add(dungeon,choices[c])
-				-- print(dungeon[5].name)
-				-- stop()
+			cc=choices[c]
+			if 	(cc.name=="bat" and bat==1) or
+				(cc.name=="spider" and spider==2) or
+				(cc.name=="coins" and coins==1)then 
+				add(dungeon,cc)
 			end
 		end
 	elseif orc==1 then
@@ -555,19 +547,21 @@ function build_dungeon(seed)
 	else
 		for c=#choices,1,-1 do
 			for n=1,#cnt do
-				if 	(cnt[n].name==choices[c].name and 
-					(cnt[n].num+1<choices[c].min or 
-					cnt[n].num+1>choices[c].max or 
-					choices[c].type=="hero" or
-					choices[c].type=="aid" or
-					choices[c].type=="other" or
-					choices[c].type=="npc" or
-					(choices[c].name=="dragon" and monster>0) or
-					choices[c].name=="thief" or
-					choices[c].name=="blade orc" or
-					choices[c].name=="axe orc"))
+				cn=cnt[n]
+				cc=choices[c]
+				if 	(cn.name==cc.name and 
+					(cn.num+1<cc.min or 
+					cn.num+1>cc.max or 
+					cc.type=="hero" or
+					cc.type=="aid" or
+					cc.type=="other" or
+					cc.type=="npc" or
+					(cc.name=="dragon" and monster>0) or
+					cc.name=="thief" or
+					cc.name=="blade orc" or
+					cc.name=="axe orc"))
 					 then
-					del(choices,choices[c])
+					del(choices,cc)
 					break
 				end
 			end
@@ -582,10 +576,11 @@ function build_dungeon(seed)
 	necro=0
 	monster={}
 	for d=1,#dungeon do 
-		if(dungeon[d].name=="dragon") dragon+=1
-		if(dungeon[d].name=="mage") mage+=1
-		if(dungeon[d].name=="necromancer") necro+=1
-		if(dungeon[d].type=="monster") add(monster,d)
+		dd=dungeon[d]
+		if(dd.name=="dragon") dragon+=1
+		if(dd.name=="mage") mage+=1
+		if(dd.name=="necromancer") necro+=1
+		if(dd.type=="monster") add(monster,d)
 	end
 	frog_target=rnd(monster)
 	for d=1,#dungeon do 
@@ -645,11 +640,19 @@ function count_chars(tbl)
 end
 
 function _update()
-	tnum=#timers
-	for t=tnum,1,-1 do
-		timers[t].current+=timers[t].speed
-		if timers[t].current>timers[t].length then
-			del(timers,timers[t])
+	btnp_o=btnp(🅾️)
+	btnp_x=btnp(❎)
+	btnp_r=btnp(➡️)
+	btnp_l=btnp(⬅️)
+	btnp_u=btnp(⬆️)
+	btnp_d=btnp(⬇️)
+	btn_o=btn(🅾️)
+	btn_x=btn(❎)
+	for t=#timers,1,-1 do
+		tm=timers[t]
+		tm.current+=tm.speed
+		if tm.current>tm.length then
+			del(timers,tm)
 		end
 	end
 	
@@ -660,7 +663,7 @@ function _update()
 			if htp==2 then
 				state="play"
 				-- mode=modes[mode_pos]
-			elseif btnp(🅾️) or btnp(❎) or btnp(➡️) or btnp(⬅️)  then
+			elseif btnp_o or btnp_x or btnp_r or btnp_l  then
 				htp+=1
 				go_next=false
 				wait=0
@@ -669,14 +672,14 @@ function _update()
 		end
 	elseif state=="title" then
 		button=''
-		if btnp(⬅️) then
+		if btnp_l then
 			if mode_pos > 1 then
 				mode_pos-=1
 			else
 				mode_pos=#modes
 			end
 			button='left'
-		elseif btnp(➡️) then
+		elseif btnp_r then
 			if mode_pos < #modes then
 				mode_pos+=1
 			else
@@ -687,13 +690,13 @@ function _update()
 		if wait<30 then
 			wait+=1
 		else
-			if btn(🅾️) and btn(❎) and not daily_done and modes[mode_pos]=='single' then
+			if btn_o and btn_x and not daily_done and modes[mode_pos]=='single' then
 				play_wait=true
 				htp=0 -- how to play page
 				add(timers,{length=120,speed=5,current=0,lag=0,tag="circle fill",val=100})
 				sfx(0)
 			end
-			if btn(🅾️) and btn(❎) and not eight_done and modes[mode_pos]=='eight' then
+			if btn_o and btn_x and not eight_done and modes[mode_pos]=='eight' then
 				play_wait=true
 				htp=0 -- how to play page
 				add(timers,{length=120,speed=5,current=0,lag=0,tag="circle fill",val=100})
@@ -703,7 +706,7 @@ function _update()
 	elseif state=="play" then
 		play_controls()
 	elseif state=="lose" or state=="win" then
-		if btn(🅾️) and btn(❎) then
+		if btn_o and btn_x then
 			sfx(0)
 			if modes[mode_pos]=='single' or eight_level>lvl_lmt then
 				state='title'
@@ -714,7 +717,7 @@ function _update()
 				state='play'
 			end
 			wait=0
-		elseif btnp(❎) then
+		elseif btnp_x then
 			sfx(0)
 			if mode=='stats' and modes[mode_pos]=='single' then
 				mode='result single'
@@ -739,10 +742,7 @@ function _draw()
 	if state=="title" then
 		map()
 		palt(0,false)
-		-- palt(9,true)
-		--sspr(64,112,59,13,5,10,118,26)
 		palt(11,true)
-		-- sspr(64,96,59,13,5,12,118,26)
 		sspr(64,96,
 			59,13,
 			5+50*(1-title_scale),12,
@@ -756,7 +756,6 @@ function _draw()
 				first_shake=false
 			end
 		end
-		-- sspr(16,32,32,32,32,70,64,64)
 		sspr(0,32,64,32,32,64,64,32)
 		sspr(64,32,64,32,32,96,64,32)
 		
@@ -796,7 +795,6 @@ function _draw()
 		
 		palt()
 		txt='🅾️+❎ start'
-		-- bprint(txt,centre_text(txt,2),92,7,0)
 		col=14
 		if(txt3!='')col=5
 		bprint(txt,centre_text(txt,2),120,col,0)
@@ -830,7 +828,7 @@ function _draw()
 end
 
 function play_controls()
-	if btnp(➡️) then 
+	if btnp_r then 
 		if cursor==20 and aid then
 			cursor=15
 		elseif cursor==20 then
@@ -845,7 +843,7 @@ function play_controls()
 			cursor=1
 		end
 	end
-	if btnp(⬅️) then 
+	if btnp_l then 
 		if cursor==9 then
 			cursor=14
 		elseif cursor==16 and aid==false then
@@ -856,7 +854,7 @@ function play_controls()
 			cursor=8
 		end
 	end
-	if btnp(⬆️) then
+	if btnp_u then
 		if cursor==1 or cursor==8 then
 			--nothing
 		elseif cursor==2 then 
@@ -873,7 +871,7 @@ function play_controls()
 			cursor-=6
 		end
 	end
-	if btnp(⬇️) then
+	if btnp_d then
 		if cursor==1 or cursor==8 then
 			--nothing
 		elseif cursor>1 and cursor<8 then
@@ -890,7 +888,7 @@ function play_controls()
 			cursor=cursor-13
 		end
 	end
-	if btnp(🅾️) and ((#guess%5==0 and #timers==0) or #guess%5!=0) then
+	if btnp_o and ((#guess%5==0 and #timers==0) or #guess%5!=0) then
 		sfx(0)
 		--add char to current spot
 		if chars[cursor].type != "aid" then
@@ -927,7 +925,8 @@ function play_controls()
 				placed=0
 				-- infinite loop somewhere
 				inf_break=0
-				while placed < reveals or inf_break > 120 do
+				no_more=false
+				while placed < reveals or inf_break >= 120 and not no_more do
 					for g=1,#chars do
 						if flr(rnd(3))==1 and chars[g].result=="none" then
 							any_right=0
@@ -941,7 +940,7 @@ function play_controls()
 								placed+=1
 							end
 						end
-						if (placed>=reveals) break
+						if (placed>=reveals) no_more=true break
 					end
 					inf_break+=1
 				end
@@ -960,7 +959,7 @@ function play_controls()
 		end
 		add(timers,{length=2,speed=1,current=0,lag=0,tag="button press"})
 		add(timers,{length=10,speed=1,current=0,lag=0,tag="select text",val=cursor})	
-	elseif btnp(❎) then
+	elseif btnp_x then
 		sfx(1)
 		--delete last placed char
 		if #guess%5 > 0 then
@@ -1168,23 +1167,12 @@ function transition(title,col)
 		print("DUNGLEON",48,11+ty,7)
 		print("L",64,11+ty,14)
 
-
-		m=stat(91)
-		if(m==1) mth='jan'
-		if(m==2) mth='feb'
-		if(m==3) mth='mar'
-		if(m==4) mth='apr'
-		if(m==5) mth='may'
-		if(m==6) mth='jun'
-		if(m==7) mth='jul'
-		if(m==8) mth='aug'
-		if(m==9) mth='sep'
-		if(m==10) mth='oct'
-		if(m==11) mth='nov'
-		if(m==12) mth='dec'
+		mlist={'jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'}
+		mth=mlist[stat(91)]
 	end		
 		
 	if mode=='result single' then
+		-- DD MON YY
 		txt=tostr(stat(92))..' '..mth..' '..tostr(stat(90)-2000)
 		print(txt,centre_text(txt,0),19+ty,7)
 		if(hardmode) then
@@ -1291,95 +1279,53 @@ function shspr(s,x,y,pl,hl,m,bg)
 	-- m = match
 	-- bg = background style
 	local highlighter=hl
-
+	s1=0
 	if highlighter then
 		if m=="none" then
-			spr(168,x-2,y-2)
-			spr(169,x+6,y-2)
-			spr(184,x-2,y+6)
-			spr(185,x+6,y+6)
+			s1=168
 		elseif m=="wrong" then
-			spr(170,x-2,y-2)
-			spr(171,x+6,y-2)
-			spr(186,x-2,y+6)
-			spr(187,x+6,y+6)
+			s1=170
 		elseif m=="close" then
-			spr(172,x-2,y-2)
-			spr(173,x+6,y-2)
-			spr(188,x-2,y+6)
-			spr(189,x+6,y+6)
+			s1=172
 		elseif m=="right" then
-			spr(174,x-2,y-2)
-			spr(175,x+6,y-2)
-			spr(190,x-2,y+6)
-			spr(191,x+6,y+6)
+			s1=174
 		elseif m=="yes aid" then
-			spr(140,x-2,y-2)
-			spr(141,x+6,y-2)
-			spr(156,x-2,y+6)
-			spr(157,x+6,y+6)
+			s1=140
 		end
 	elseif bg=="blank" then
-		spr(128,x-2,y-2)
-		spr(129,x+6,y-2)
-		spr(144,x-2,y+6)
-		spr(145,x+6,y+6)
+		s1=128
 	else
 		if bg == "flat" then
 			if m=="none" then
-				spr(160,x-2,y-2)
-				spr(161,x+6,y-2)
-				spr(176,x-2,y+6)
-				spr(177,x+6,y+6)
+				s1=160
 			elseif m=="guess" then
-				spr(128,x-2,y-2)
-				spr(129,x+6,y-2)
-				spr(144,x-2,y+6)
-				spr(145,x+6,y+6)
+				s1=128
 			elseif m=="wrong" then
-				spr(162,x-2,y-2)
-				spr(163,x+6,y-2)
-				spr(178,x-2,y+6)
-				spr(179,x+6,y+6)
+				s1=162
 			elseif m=="close" then
-				spr(164,x-2,y-2)
-				spr(165,x+6,y-2)
-				spr(180,x-2,y+6)
-				spr(181,x+6,y+6)
+				s1=164
 			elseif m=="right" then
-				spr(166,x-2,y-2)
-				spr(167,x+6,y-2)
-				spr(182,x-2,y+6)
-				spr(183,x+6,y+6)
+				s1=166
 			elseif m=="no aid" then
-				spr(142,x-2,y-2)
-				spr(143,x+6,y-2)
-				spr(158,x-2,y+6)
-				spr(159,x+6,y+6)
+				s1=142
 			elseif m=="yes aid" then
-				spr(138,x-2,y-2)
-				spr(139,x+6,y-2)
-				spr(154,x-2,y+6)
-				spr(155,x+6,y+6)
+				s1=138
 			end
 		else
 			if m=="wrong" then
-				spr(130,x-2,y-2)
-				spr(131,x+6,y-2)
-				spr(146,x-2,y+6)
-				spr(147,x+6,y+6)
+				s1=130
 			elseif m=="close" then
-				spr(132,x-2,y-2)
-				spr(133,x+6,y-2)
-				spr(148,x-2,y+6)
-				spr(149,x+6,y+6)
+				s1=132
 			elseif m=="right" then
-				spr(134,x-2,y-2)
-				spr(135,x+6,y-2)
-				spr(150,x-2,y+6)
-				spr(151,x+6,y+6)
+				s1=134
 			end
 		end
+	end
+	if(s1!=0) then
+		spr(s1,x-2,y-2)
+		spr(s1+1,x+6,y-2)
+		spr(s1+16,x-2,y+6)
+		spr(s1+17,x+6,y+6)
 	end
 
 	for i=0,15 do
@@ -1460,12 +1406,13 @@ function characters()
 		else
 			highlight=false
 		end
+		ch=chars[i]
 		if i>14 then
-			shspr(chars[i].spr,2+13*(i-13),114,chars[i].palt,highlight,chars[i].result,'flat')
+			shspr(ch.spr,2+13*(i-13),114,ch.palt,highlight,ch.result,'flat')
 		elseif i>8 then
-			shspr(chars[i].spr,2+13*(i-7),101,chars[i].palt,highlight,chars[i].result,'flat')
+			shspr(ch.spr,2+13*(i-7),101,ch.palt,highlight,ch.result,'flat')
 		else
-			shspr(chars[i].spr,2+13*i,88,chars[i].palt,highlight,chars[i].result,'flat')
+			shspr(ch.spr,2+13*i,88,ch.palt,highlight,ch.result,'flat')
 		end
 	end
 end
@@ -1499,23 +1446,24 @@ function check_guesses(row)
 
 	-- correct and wrong
 	for g=1,5 do
-		if guess[g+row*5].name==solution[g].name then
-			guess[g+row*5].result='right'
+		gg=guess[g+row*5]
+		if gg.name==solution[g].name then
+			gg.result='right'
 			for s=1,#num_sol do
-				if num_sol[s].name==guess[g+row*5].name then
+				if num_sol[s].name==gg.name then
 					num_sol[s].num-=1
 				end
 			end
 			for s=1,#num_guess do
-				if num_guess[s].name==guess[g+row*5].name then
+				if num_guess[s].name==gg.name then
 					num_guess[s].num-=1
 				end
 			end
-			if(guess[g+row*5].name=="mage") wiz_check+=1		
+			if(gg.name=="mage") wiz_check+=1		
 			right+=1
 		-- elseif guess[g+row*5].result!='close' then
 		else
-			guess[g+row*5].result='wrong'
+			gg.result='wrong'
 		end
 	end
 	
@@ -1525,19 +1473,22 @@ function check_guesses(row)
 	-- 2. check there are remaining guesses and they haven't been guessed
 	-- 3. 
 	for g=1,5 do
+		gg=guess[g+row*5]
 		for s=1,5 do
-			if 	guess[g+row*5].name!=solution[g].name and
-			guess[g+row*5].name==solution[s].name then
+			if 	gg.name!=solution[g].name and
+			gg.name==solution[s].name then
 				if #num_guess>0 and #num_sol>0 then
 					for ns=1,#num_sol do
-						if 	num_sol[ns].name==guess[g+row*5].name and
-							num_sol[ns].num>0 then
+						nsn=num_sol[ns]
+						if 	nsn.name==gg.name and
+							nsn.num>0 then
 							for ng=1,#num_guess do
-								if 	num_guess[ng].name==guess[g+row*5].name and
-									num_guess[ng].num>0 then
-										guess[g+row*5].result='close'
-										num_sol[ns].num-=1
-										num_guess[ng].num-=1
+								ngn=num_guess[ng]
+								if 	ngn.name==gg.name and
+									ngn.num>0 then
+										gg.result='close'
+										nsn.num-=1
+										ngn.num-=1
 								end
 							end
 						end
@@ -1561,39 +1512,37 @@ function check_guesses(row)
 				end
 			end
 		end
-		-- print(#hard_check)
-		-- stop()
 	end
 	if(#hard_check>0)hardmode=false
 
 	for g=1,5 do
+		gg=guess[g+row*5]
 		for c=1,#chars do
-			if guess[g+row*5].name==chars[c].name then
-				chars[c].result=guess[g+row*5].result
+			if gg.name==chars[c].name then
+				chars[c].result=gg.result
 			end
 		end
 	end
 
 	for g=1,5 do
-		guess[g+row*5].more=''
-		if guess[g+row*5].result!='wrong' then
-			temp_name=guess[g+row*5].name
+		gg=guess[g+row*5]
+		gg.more=''
+		if gg.result!='wrong' then
+			temp_name=gg.name
 			guess_cnt=0
 			sol_cnt=0
 			for s=1,#num_sol do
-				if num_sol[s].name==guess[g+row*5].name then
+				if num_sol[s].name==gg.name then
 					sol_cnt=num_sol[s].num
 				end
 			end
 			for s=1,#num_guess do
-				if num_guess[s].name==guess[g+row*5].name then
+				if num_guess[s].name==gg.name then
 					guess_cnt=num_guess[s].num
 				end
 			end
-			print(guess_cnt)
-			print(sol_cnt)
 			if guess_cnt<sol_cnt then
-				guess[g+row*5].more='p'
+				gg.more='p'
 			end
 		end
 	end
@@ -1643,19 +1592,20 @@ end
 
 function timer_draw_actions()
 	for t=1,#timers do
-		if timers[t].current > timers[t].lag then
-			if timers[t].tag == "bump right" then
-				camera(timers[t].current,0)
-			elseif timers[t].tag == "bump left" then
-				camera(-timers[t].current,0)
-			elseif timers[t].tag == "bump up" then
-				camera(0,-timers[t].current)
-			elseif timers[t].tag == "bump down" then
-				camera(0,timers[t].current)
+		tt=timers[t]
+		if tt.current > tt.lag then
+			if tt.tag == "bump right" then
+				camera(tt.current,0)
+			elseif tt.tag == "bump left" then
+				camera(-tt.current,0)
+			elseif tt.tag == "bump up" then
+				camera(0,-tt.current)
+			elseif tt.tag == "bump down" then
+				camera(0,tt.current)
 			else
 				camera(0,0)
 			end
-			if timers[t].tag == "button press" then
+			if tt.tag == "button press" then
 				for i=1,#chars do
 					if cursor == i then
 						if i>14 then
@@ -1677,28 +1627,28 @@ function timer_draw_actions()
 				spr(145,cx+6,cy+6)
 				pal()
 			end
-			if timers[t].tag == "select text" then
-				name=chars[timers[t].val].name
+			if tt.tag == "select text" then
+				name=chars[tt.val].name
 				y=79
 				if(#guess > 25) y=66
 				bprint(name,centre_text(name,0),y,7,1)
 			end
-			if timers[t].tag == "guess pop" then
+			if tt.tag == "guess pop" then
 				s1=192
 				s2=208
 				palt(14,true)
 				palt(0,false)
-				sx=timers[t].val%5*13+31
-				sy=flr(timers[t].val/5)*13+6
+				sx=tt.val%5*13+31
+				sy=flr(tt.val/5)*13+6
 				spr(s1,sx,sy)
 				spr(s1+1,sx+8,sy)
 				spr(s2,sx,sy+8)
 				spr(s2+1,sx+8,sy+8)
 				palt()
 			end
-			if timers[t].tag=="circle fill" then
+			if tt.tag=="circle fill" then
 				-- fillp(▒)
-				circfill(64,timers[t].val,timers[t].current,0)
+				circfill(64,tt.val,tt.current,0)
 			end
 		end
 	end
